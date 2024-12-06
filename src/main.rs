@@ -1,4 +1,5 @@
 pub mod echopb {
+    #![allow(clippy::pedantic, clippy::nursery)]
     tonic::include_proto!("echopb");
 }
 
@@ -17,7 +18,7 @@ use tonic::Status;
 struct EchoService;
 
 impl EchoService {
-    fn new() -> Self {
+    const fn new() -> Self {
         Self {}
     }
 }
@@ -25,8 +26,11 @@ impl EchoService {
 #[tonic::async_trait]
 impl Echo for EchoService {
     async fn echo(&self, request: Request<EchoRequest>) -> Result<Response<EchoResponse>, Status> {
-        println!("echo? request.msg={:?}", request.get_ref());
-        Err(Status::internal("TODO: implement"))
+        println!("echo request.msg={:?}", request.get_ref());
+        let response = EchoResponse {
+            output: format!("echoed: {}", request.get_ref().input),
+        };
+        Ok(Response::new(response))
     }
 }
 
