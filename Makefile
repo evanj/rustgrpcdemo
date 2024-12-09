@@ -5,6 +5,8 @@ all: $(BUILD_DIR)/.proto_format_stamp
 	cargo fmt
 	# disallow warnings so they fail CI
 	cargo clippy --all-targets -- -D warnings
+	# fail for rustdoc warnings
+	RUSTDOCFLAGS="-D warnings" cargo doc --no-deps
 	cargo verify-project
 	cargo audit
 
