@@ -4,6 +4,7 @@ package echopb;
 
 service Echo {
   rpc Echo(EchoRequest) returns (EchoResponse) {}
+  rpc EchoBiDir(stream EchoRequest) returns (stream EchoResponse) {}
 }
 
 message EchoRequest {
