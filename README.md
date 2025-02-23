@@ -3,6 +3,11 @@
 This is a demonstration program using Rust with gRPC using Tonic. This interoperates with my [Go gRPC demo](https://github.com/evanj/gogrpcdemo).
 
 
+## Streamclient
+
+This is a gRPC bidirectional streaming example, but also includes a demonstration of Rust Futures and Streams. They are complicated!
+
+
 # References
 
 * [Tonic Route Guide Tutorial](https://github.com/hyperium/tonic/blob/master/examples/routeguide-tutorial.md)

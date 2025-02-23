@@ -1,6 +1,5 @@
 use std::net::SocketAddr;
 use std::pin::Pin;
-use std::time::Duration;
 
 use rustgrpcdemo::echopb::EchoRequest;
 use rustgrpcdemo::echopb::EchoResponse;
@@ -79,8 +78,8 @@ async fn do_echo_bi_dir(
             request.input
         );
 
-        tokio::time::sleep(Duration::from_secs(1)).await;
-        println!("{} unblocked after sleeping", now_formatted(),);
+        // tokio::time::sleep(Duration::from_millis(500)).await;
+        // println!("{} unblocked after sleeping", now_formatted(),);
 
         let response = EchoResponse {
             output: format!("echoed: {}", request.input),
@@ -94,7 +93,22 @@ async fn do_echo_bi_dir(
                 ))
             })?;
     }
-    println!("echo_bi_dir request stream ended; TODO: send bonus message");
+    let extra_message = EchoResponse {
+        output: "extra message after sender closed abcdef".to_string(),
+    };
+    println!(
+        "{} echo_bi_dir request stream ended; sending extra bonus message: {}",
+        now_formatted(),
+        extra_message.output
+    );
+    response_stream_sender
+        .send(Ok(extra_message))
+        .await
+        .map_err(|err| {
+            tonic::Status::internal(format!(
+                "do_echo_bi_dir: response_stream_sender.send() failed: {err}"
+            ))
+        })?;
     Ok(())
 }
 

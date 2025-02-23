@@ -1,5 +1,6 @@
 use std::{pin::Pin, task::Poll, time::Duration};
 
+use async_stream::stream;
 use rustgrpcdemo::{
     echopb::{EchoRequest, echo_client::EchoClient},
     now_formatted,
@@ -126,6 +127,7 @@ impl Stream for RawRequestStream {
     }
 }
 
+/// Returns all values from an asynchronous stream, as a Future so you can `.await` on it.
 struct GetAllFuture {
     raw_stream: Pin<Box<RawRequestStream>>,
     result: Vec<EchoRequest>,
@@ -185,10 +187,9 @@ impl Future for GetAllFuture {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     const GRPC_URL: &str = "http://[::1]:8001/";
-    const NUM_MESSAGES: usize = 3;
-    const MESSAGE_SLEEP: Duration = Duration::from_secs(1);
-    const FUTURE_EXAMPLE_SLEEP: Duration = Duration::ZERO;
-    // const FUTURE_EXAMPLE_SLEEP: Duration = Duration::from_millis(100);
+    const NUM_MESSAGES: usize = 10;
+    const MESSAGE_SLEEP: Duration = Duration::from_millis(500);
+    const FUTURE_EXAMPLE_SLEEP: Duration = Duration::from_millis(100);
 
     // example of a raw Future that wraps a tokio sleep
     println!(
@@ -198,7 +199,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     SleepWrapper::new(FUTURE_EXAMPLE_SLEEP).await;
     println!();
 
-    // use our raw stream directly with await
+    // test using RawRequestStream directly with await
     let result = GetAllFuture::new(RawRequestStream::new(2, Duration::ZERO)).await;
     println!(
         "{} GetAllFuture returned {} values",
@@ -217,17 +218,60 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "{} starting stream using RawRequestStream ...",
         now_formatted()
     );
-    // NOTE: the simplest thing seems to be to use this async-stream crate?
-    // https://docs.rs/async-stream/latest/async_stream/
-    // This is an experiment to implement it "by hand"
     let request_stream = RawRequestStream::new(NUM_MESSAGES, MESSAGE_SLEEP);
 
-    let mut stream = client
+    let mut response_stream = client
         .echo_bi_dir(tonic::Request::new(request_stream))
         .await?
         .into_inner();
     let mut received_messages = 0;
-    while let Some(response) = stream.message().await? {
+    while let Some(response) = response_stream.message().await? {
+        println!(
+            "{} received response.output={}",
+            now_formatted(),
+            response.output
+        );
+        received_messages += 1;
+    }
+    println!(
+        "{} stream complete received_messages={received_messages}",
+        now_formatted()
+    );
+    println!();
+
+    // repeat stream using async-stream
+    let request_stream = stream! {
+        for i in 0..NUM_MESSAGES {
+            let request = EchoRequest {
+                input: format!("message {i}"),
+            };
+            println!(
+                "{}     async-stream: yielding request.input={} ...",
+                now_formatted(),
+                request.input
+            );
+            yield request;
+
+            if i < NUM_MESSAGES-1 {
+                println!(
+                    "{}     async-stream: sleeping between messages for {MESSAGE_SLEEP:?} ...",
+                    now_formatted(),
+                );
+                tokio::time::sleep(MESSAGE_SLEEP).await;
+            }
+        }
+    };
+
+    println!(
+        "{} calling client.echo_bi_dir using async-stream ...",
+        now_formatted()
+    );
+    let mut response_stream = client
+        .echo_bi_dir(tonic::Request::new(request_stream))
+        .await?
+        .into_inner();
+    let mut received_messages = 0;
+    while let Some(response) = response_stream.message().await? {
         println!(
             "{} received response.output={}",
             now_formatted(),
