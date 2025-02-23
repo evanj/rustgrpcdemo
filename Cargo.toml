@@ -1,8 +1,13 @@
 [package]
 name = "rustgrpcdemo"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 publish = false
+description = "Demo of using gRPC with Rust"
+homepage = "https://github.com/evanj/rustgrpcdemo"
+readme = "README.md"
+license = "MIT"
+repository = "https://github.com/evanj/rustgrpcdemo"
 
 default-run = "rustgrpcdemo"
 
@@ -18,6 +23,7 @@ multiple-crate-versions = { level = "allow", priority = 1 }
 
 
 [dependencies]
+chrono = "0"
 prost = "0"
 tokio = { version = "1", features = ["rt-multi-thread"] }
 tokio-stream = "0"

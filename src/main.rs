@@ -1,15 +1,17 @@
 use std::net::SocketAddr;
 use std::pin::Pin;
+use std::time::Duration;
 
-use rustgrpcdemo::echopb::echo_server::Echo;
-use rustgrpcdemo::echopb::echo_server::EchoServer;
 use rustgrpcdemo::echopb::EchoRequest;
 use rustgrpcdemo::echopb::EchoResponse;
+use rustgrpcdemo::echopb::echo_server::Echo;
+use rustgrpcdemo::echopb::echo_server::EchoServer;
+use rustgrpcdemo::now_formatted;
 use tokio_stream::wrappers::ReceiverStream;
-use tonic::transport::Server;
 use tonic::Request;
 use tonic::Response;
 use tonic::Status;
+use tonic::transport::Server;
 
 #[derive(Debug)]
 struct EchoService {}
@@ -46,7 +48,6 @@ impl Echo for EchoService {
 
         tokio::spawn(async move {
             let stream_result = do_echo_bi_dir(request_stream, &response_stream_sender).await;
-            println!("wtf here?");
             if let Err(stream_err) = stream_result {
                 eprintln!("do_echo_bi_dir returned error; sending to caller: {stream_err}");
                 let final_send_result = response_stream_sender
@@ -58,7 +59,6 @@ impl Echo for EchoService {
                     eprintln!("echo_bi_dir failed sending error to caller; send error: {send_err}");
                 }
             }
-            println!("wtf here 2?");
         });
 
         Ok(Response::new(Box::pin(ReceiverStream::new(
@@ -73,7 +73,15 @@ async fn do_echo_bi_dir(
 ) -> Result<(), tonic::Status> {
     let mut request_stream = request_stream;
     while let Some(request) = request_stream.message().await? {
-        println!("echo_bi_dir echoing request.input={:?}", request.input);
+        println!(
+            "{} echo_bi_dir received request.input={:?}",
+            now_formatted(),
+            request.input
+        );
+
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        println!("{} unblocked after sleeping", now_formatted(),);
+
         let response = EchoResponse {
             output: format!("echoed: {}", request.input),
         };
