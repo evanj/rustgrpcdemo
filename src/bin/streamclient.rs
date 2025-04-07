@@ -183,7 +183,6 @@ impl Future for GetAllFuture {
     }
 }
 
-#[expect(clippy::significant_drop_tightening)]
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     const GRPC_URL: &str = "http://[::1]:8001/";
