@@ -14,3 +14,11 @@ message EchoRequest {
 message EchoResponse {
   string output = 1;
 }
+
+message Example1 {
+  int64 int64_value = 1;
+}
+
+message Example2 {
+  double float64_value = 1;
+}
