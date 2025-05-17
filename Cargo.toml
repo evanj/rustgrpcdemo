@@ -25,6 +25,7 @@ multiple-crate-versions = { level = "allow", priority = 1 }
 [dependencies]
 async-stream = "0"
 chrono = "0"
+clap = { version = "4", features = ["derive"] }
 prost = "0"
 prost-types = "0"
 tokio = { version = "1", features = ["rt-multi-thread"] }

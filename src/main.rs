@@ -1,10 +1,13 @@
 use std::net::SocketAddr;
 use std::pin::Pin;
 
+use clap::Parser;
+use prost_types::Any;
 use rustgrpcdemo::echopb::EchoRequest;
 use rustgrpcdemo::echopb::EchoResponse;
 use rustgrpcdemo::echopb::echo_server::Echo;
 use rustgrpcdemo::echopb::echo_server::EchoServer;
+use rustgrpcdemo::echopb::{Example1, Example2};
 use rustgrpcdemo::now_formatted;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::Request;
@@ -13,11 +16,13 @@ use tonic::Status;
 use tonic::transport::Server;
 
 #[derive(Debug)]
-struct EchoService {}
+struct EchoService {
+    err_details: bool,
+}
 
 impl EchoService {
-    const fn new() -> Self {
-        Self {}
+    const fn new(err_details: bool) -> Self {
+        Self { err_details }
     }
 }
 
@@ -27,6 +32,20 @@ impl EchoService {}
 impl Echo for EchoService {
     async fn echo(&self, request: Request<EchoRequest>) -> Result<Response<EchoResponse>, Status> {
         println!("echo request.msg={:?}", request.get_ref());
+        if self.err_details {
+            let details1_any = Any::from_msg(&Example1 { int64_value: 99 }).unwrap();
+            let details2_any = Any::from_msg(&Example2 {
+                float64_value: 3.14,
+            })
+            .unwrap();
+            let status_pb = tonic_types::Status {
+                code: tonic::Code::Internal as i32,
+                message: "error with 2 details".to_string(),
+                details: vec![details1_any, details2_any],
+            };
+            return Err(status_pb);
+        }
+
         let response = EchoResponse {
             output: format!("echoed: {}", request.get_ref().input),
         };
@@ -112,6 +131,12 @@ async fn do_echo_bi_dir(
     Ok(())
 }
 
+#[derive(Debug, Parser)]
+struct Args {
+    #[clap(long, default_value_t = false)]
+    err_details: bool,
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     const LISTEN_ADDR: &str = "::1";
@@ -119,10 +144,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let listen_addr_parsed = LISTEN_ADDR.parse().unwrap();
     let listen_addr = SocketAddr::new(listen_addr_parsed, LISTEN_PORT);
 
-    // construct our server
-    let echo_service = EchoService::new();
+    let args = Args::parse();
 
-    println!("listening on {LISTEN_ADDR}:{LISTEN_PORT} ...");
+    // construct our server
+    let echo_service = EchoService::new(args.err_details);
+
+    println!(
+        "listening on {LISTEN_ADDR}:{LISTEN_PORT} err_details={}...",
+        args.err_details
+    );
 
     // create the grpc wrappers and start listening
     Server::builder()
