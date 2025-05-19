@@ -1327,6 +1327,7 @@ name = "rustgrpcdemo"
 version = "0.1.0"
 dependencies = [
  "async-stream",
+ "bytes",
  "chrono",
  "clap",
  "dlprotoc",

@@ -1,7 +1,9 @@
 use std::net::SocketAddr;
 use std::pin::Pin;
 
+use bytes::Bytes;
 use clap::Parser;
+use prost::Message;
 use prost_types::Any;
 use rustgrpcdemo::echopb::EchoRequest;
 use rustgrpcdemo::echopb::EchoResponse;
@@ -34,16 +36,25 @@ impl Echo for EchoService {
         println!("echo request.msg={:?}", request.get_ref());
         if self.err_details {
             let details1_any = Any::from_msg(&Example1 { int64_value: 99 }).unwrap();
-            let details2_any = Any::from_msg(&Example2 {
-                float64_value: 3.14,
-            })
-            .unwrap();
+            let example2 = Example2 {
+                float64_value: 1.234,
+            };
+            let details2_any = Any::from_msg(&example2).unwrap();
+
             let status_pb = tonic_types::Status {
                 code: tonic::Code::Internal as i32,
                 message: "error with 2 details".to_string(),
                 details: vec![details1_any, details2_any],
             };
-            return Err(status_pb);
+            // encode the status and attach it
+            let status_bytes = status_pb.encode_to_vec();
+            let status = tonic::Status::with_details(
+                tonic::Code::Internal,
+                "error with 2 details".to_string(),
+                Bytes::from(status_bytes),
+            );
+
+            return Err(status);
         }
 
         let response = EchoResponse {
@@ -133,6 +144,7 @@ async fn do_echo_bi_dir(
 
 #[derive(Debug, Parser)]
 struct Args {
+    /// Returns a gRPC error with details that are compatible with other gRPC implementations.
     #[clap(long, default_value_t = false)]
     err_details: bool,
 }
