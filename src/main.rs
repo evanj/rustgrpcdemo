@@ -142,11 +142,85 @@ async fn do_echo_bi_dir(
     Ok(())
 }
 
+#[derive(Debug)]
+struct EchoServiceCustomCodec {
+    err_details: bool,
+}
+
+impl EchoServiceCustomCodec {
+    const fn new(err_details: bool) -> Self {
+        Self { err_details }
+    }
+}
+
+impl EchoServiceCustomCodec {}
+
+#[tonic::async_trait]
+impl rustgrpcdemo::custom_codec_echopb::echo_server::Echo for EchoServiceCustomCodec {
+    async fn echo(
+        &self,
+        request: Request<rustgrpcdemo::custom_codec_echopb::EchoRequest>,
+    ) -> Result<Response<rustgrpcdemo::custom_codec_echopb::EchoResponse>, Status> {
+        println!("echo request.msg={:?}", request.get_ref());
+        if self.err_details {
+            let details1_any = Any::from_msg(&Example1 { int64_value: 99 }).unwrap();
+            let example2 = Example2 {
+                float64_value: 1.234,
+            };
+            let details2_any = Any::from_msg(&example2).unwrap();
+
+            let status_pb = tonic_types::Status {
+                code: tonic::Code::Internal as i32,
+                message: "error with 2 details".to_string(),
+                details: vec![details1_any, details2_any],
+            };
+            // encode the status and attach it
+            let status_bytes = status_pb.encode_to_vec();
+            let status = tonic::Status::with_details(
+                tonic::Code::Internal,
+                "error with 2 details".to_string(),
+                Bytes::from(status_bytes),
+            );
+
+            return Err(status);
+        }
+
+        let response = rustgrpcdemo::custom_codec_echopb::EchoResponse {
+            output: format!("echoed: {}", request.get_ref().input),
+        };
+        Ok(Response::new(response))
+    }
+
+    type EchoBiDirStream = Pin<
+        Box<
+            dyn tokio_stream::Stream<
+                    Item = Result<rustgrpcdemo::custom_codec_echopb::EchoResponse, tonic::Status>,
+                > + Send
+                + 'static,
+        >,
+    >;
+
+    async fn echo_bi_dir(
+        &self,
+        _request: tonic::Request<tonic::Streaming<rustgrpcdemo::custom_codec_echopb::EchoRequest>>,
+    ) -> std::result::Result<tonic::Response<Self::EchoBiDirStream>, tonic::Status> {
+        println!("echo_bi_dir: unimplemented for custom codec");
+        // TODO: implement?
+        Err(tonic::Status::unimplemented(
+            "echo_bi_dir unimplemented for custom codec",
+        ))
+    }
+}
+
 #[derive(Debug, Parser)]
 struct Args {
     /// Returns a gRPC error with details that are compatible with other gRPC implementations.
     #[clap(long, default_value_t = false)]
     err_details: bool,
+
+    /// Use `CustomResponseCodec` instead of the normal prost codec.
+    #[clap(long, default_value_t = false)]
+    custom_codec: bool,
 }
 
 #[tokio::main]
@@ -158,19 +232,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let args = Args::parse();
 
-    // construct our server
-    let echo_service = EchoService::new(args.err_details);
-
     println!(
         "listening on {LISTEN_ADDR}:{LISTEN_PORT} err_details={}...",
         args.err_details
     );
 
-    // create the grpc wrappers and start listening
-    Server::builder()
-        .add_service(EchoServer::new(echo_service))
-        .serve(listen_addr)
-        .await?;
+    // construct the server and listen
+    // TODO: refactor the common code out? The traits make this tricky
+    if args.custom_codec {
+        println!("using custom codec ...");
+        let echo_service = EchoServiceCustomCodec::new(args.err_details);
+        Server::builder()
+            .add_service(
+                rustgrpcdemo::custom_codec_echopb::echo_server::EchoServer::new(echo_service),
+            )
+            .serve(listen_addr)
+            .await?;
+    } else {
+        let echo_service = EchoService::new(args.err_details);
+        Server::builder()
+            .add_service(EchoServer::new(echo_service))
+            .serve(listen_addr)
+            .await?;
+    }
 
     Ok(())
 }
