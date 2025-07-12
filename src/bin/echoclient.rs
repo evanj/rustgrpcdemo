@@ -1,3 +1,4 @@
+use clap::Parser;
 use prost::Message;
 use prost::Name;
 use rustgrpcdemo::{
@@ -15,12 +16,23 @@ fn decode_details(details: &[u8]) -> Vec<prost_types::Any> {
     details_status.details
 }
 
+#[derive(Debug, Parser)]
+struct Args {
+    // The gRPC URL to connect to.
+    #[clap(long, default_value = "http://localhost:8001/")]
+    grpc_url: String,
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    const GRPC_URL: &str = "http://localhost:8001/";
+    let args = Args::parse();
 
-    println!("{} connecting to GRPC_URL={GRPC_URL} ...", now_formatted());
-    let mut client = EchoClient::connect(GRPC_URL).await?;
+    println!(
+        "{} connecting to GRPC_URL={} ...",
+        args.grpc_url,
+        now_formatted()
+    );
+    let mut client = EchoClient::connect(args.grpc_url).await?;
 
     let request = EchoRequest {
         input: "Hello, world!".to_string(),
