@@ -1,17 +1,17 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    const EMPTY_PATH_SLICE: &[&Path] = &[];
+    const EMPTY_PATH_SLICE: &[&str] = &[];
 
     dlprotoc::download_protoc()?;
-    tonic_build::compile_protos("proto/echo.proto")?;
+    tonic_prost_build::compile_protos("proto/echo.proto")?;
 
     // make a copy of the protos with a custom codec
     let out_dir = PathBuf::from(std::env::var("OUT_DIR")?);
     let custom_codec_dir = out_dir.join("custom_codec");
     // use create_dir_all to ignore "directory exists" errors
     std::fs::create_dir_all(&custom_codec_dir)?;
-    tonic_build::configure()
+    tonic_prost_build::configure()
         .out_dir(custom_codec_dir)
         .codec_path("crate::CustomResponseCodec")
         .compile_protos(&["proto/echo.proto"], EMPTY_PATH_SLICE)?;

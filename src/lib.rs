@@ -4,7 +4,7 @@ use chrono::SecondsFormat;
 use prost::Message;
 use tonic::codec::BufferSettings;
 use tonic::codec::Codec;
-use tonic::codec::ProstCodec;
+use tonic_prost::ProstCodec;
 
 pub mod echopb {
     #![expect(clippy::pedantic, clippy::nursery)]
